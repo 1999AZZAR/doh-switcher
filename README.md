@@ -30,7 +30,7 @@ The application will only work properly after completing the Cloudflared setup p
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/doh-switcher.git
+   git clone https://github.com/1999AZZAR/doh-switcher.git
    cd doh-switcher
    ```
 
