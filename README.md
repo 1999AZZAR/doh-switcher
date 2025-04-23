@@ -65,7 +65,7 @@ The application will only work properly after completing the Cloudflared setup p
 
 ### Performance Testing
 
-The application performs two types of tests:
+The application performs one type of test:
 
 - **Ping Test**: Basic connectivity test to the provider's host
 
