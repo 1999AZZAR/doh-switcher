@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import os
 import json
 import logging
@@ -6,6 +6,7 @@ import subprocess
 import re
 from functools import wraps
 from urllib.parse import urlparse
+import datetime
 
 app = Flask(__name__)
 app.secret_key = "doh_switcher_secret_key"
@@ -18,8 +19,10 @@ DEFAULT_PROVIDERS = [
     {"name": "Cloudflare", "url": "https://cloudflare-dns.com/dns-query"},
     {"name": "Google", "url": "https://dns.google/dns-query"},
     {"name": "Quad9", "url": "https://dns.quad9.net/dns-query"},
-    {"name": "NextDNS", "url": "https://dns.nextdns.io"},
+    {"name": "NextDNS", "url": "https://dns.nextdns.io/dns-query"},
+    {"name": "OpenDNS", "url": "https://opendns.com/dns-query"},
     {"name": "AdGuard", "url": "https://dns.adguard.com/dns-query"},
+    {"name": "SecureDNS", "url": "https://doh.securedns.eu/dns-query"},
 ]
 
 # Configure logging
@@ -31,7 +34,7 @@ logging.basicConfig(
 
 # Cache for test results
 test_results = {}
-
+ping_history = {}
 
 def log_event(message, level="info"):
     """Log events with specified level."""
@@ -195,12 +198,38 @@ def require_sudo(f):
     return decorated_function
 
 
+def get_network_info():
+    info = {"local_ip": None, "gateway": None, "dns_servers": []}
+    try:
+        result = subprocess.run(["ip", "route", "get", "8.8.8.8"], capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            m = re.search(r"src\s+(\S+)", result.stdout)
+            if m:
+                info["local_ip"] = m.group(1)
+            m2 = re.search(r"via\s+(\S+)", result.stdout)
+            if m2:
+                info["gateway"] = m2.group(1)
+    except Exception as e:
+        log_event(f"Error getting network route info: {e}", "error")
+    try:
+        with open("/etc/resolv.conf") as f:
+            for line in f:
+                if line.startswith("nameserver"):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        info["dns_servers"].append(parts[1])
+    except Exception as e:
+        log_event(f"Error reading resolv.conf: {e}", "error")
+    return info
+
+
 @app.route("/")
 @require_sudo
 def index():
     providers = load_providers()
     current_provider_name, full_provider, base_provider = get_current_doh_provider()
     service_status = get_service_status()
+    network_info = get_network_info()
     return render_template(
         "index.html",
         providers=providers,
@@ -208,6 +237,7 @@ def index():
         full_provider=full_provider,
         base_provider=base_provider,
         service_status=service_status,
+        network_info=network_info,
         default_providers=DEFAULT_PROVIDERS,
         test_results=test_results,
     )
@@ -352,6 +382,120 @@ def test_provider():
     else:
         flash("Provider name and URL are required.", "danger")
     return redirect(url_for("index"))
+
+
+# Edit provider routes
+@app.route("/edit_provider/<int:index>")
+@require_sudo
+def edit_provider(index):
+    providers = load_providers()
+    if index < 0 or index >= len(providers):
+        flash("Invalid provider index", "danger")
+        return redirect(url_for("index"))
+    if providers[index] in DEFAULT_PROVIDERS:
+        flash("Cannot edit default provider", "danger")
+        return redirect(url_for("index"))
+    provider = providers[index]
+    return render_template("edit_provider.html", index=index, provider=provider)
+
+@app.route("/update_provider/<int:index>", methods=["POST"])
+@require_sudo
+def update_provider(index):
+    providers = load_providers()
+    if index < 0 or index >= len(providers):
+        flash("Invalid provider index", "danger")
+        return redirect(url_for("index"))
+    if providers[index] in DEFAULT_PROVIDERS:
+        flash("Cannot edit default provider", "danger")
+        return redirect(url_for("index"))
+    name = request.form.get("name").strip()
+    url = request.form.get("url").strip()
+    if not name or not url:
+        flash("Name and URL cannot be empty", "danger")
+        return redirect(url_for("edit_provider", index=index))
+    normalized_url = normalize_url(url)
+    if not validate_doh_url(normalized_url):
+        flash(f"Invalid DoH URL: {url}. The server is not reachable. Please verify the URL and try again.", "danger")
+        return redirect(url_for("edit_provider", index=index))
+    for idx, p in enumerate(providers):
+        if idx != index and normalize_url(p["url"]) == normalized_url:
+            flash(f"Provider with URL {url} already exists.", "warning")
+            return redirect(url_for("edit_provider", index=index))
+    providers[index]["name"] = name
+    providers[index]["url"] = normalized_url
+    try:
+        save_providers(providers)
+        update_doh_service(normalized_url)
+        flash(f"Provider updated: {name}", "success")
+        log_event(f"Updated provider: {name} ({normalized_url})")
+    except Exception as e:
+        flash(f"Error updating provider: {e}", "danger")
+        log_event(f"Error updating provider: {e}", "error")
+    return redirect(url_for("index"))
+
+
+# Service control routes
+@app.route("/start_service", methods=["POST"])
+@require_sudo
+def start_service():
+    try:
+        subprocess.run(["sudo", "systemctl", "start", "cloudflared"], check=True)
+        flash("Service started.", "success")
+        log_event("Service started.")
+    except subprocess.CalledProcessError as e:
+        log_event(f"Error starting service: {e}", "error")
+        flash(f"Error starting service: {e}", "danger")
+    return redirect(url_for("index"))
+
+@app.route("/stop_service", methods=["POST"])
+@require_sudo
+def stop_service():
+    try:
+        subprocess.run(["sudo", "systemctl", "stop", "cloudflared"], check=True)
+        flash("Service stopped.", "success")
+        log_event("Service stopped.")
+    except subprocess.CalledProcessError as e:
+        log_event(f"Error stopping service: {e}", "error")
+        flash(f"Error stopping service: {e}", "danger")
+    return redirect(url_for("index"))
+
+@app.route("/restart_service", methods=["POST"])
+@require_sudo
+def restart_service():
+    try:
+        subprocess.run(["sudo", "systemctl", "restart", "cloudflared"], check=True)
+        flash("Service restarted.", "success")
+        log_event("Service restarted.")
+    except subprocess.CalledProcessError as e:
+        log_event(f"Error restarting service: {e}", "error")
+        flash(f"Error restarting service: {e}", "danger")
+    return redirect(url_for("index"))
+
+
+# API endpoint for real-time metrics
+@app.route("/api/status")
+@require_sudo
+def api_status():
+    _, full_provider, base_provider = get_current_doh_provider()
+    service_status = get_service_status()
+    network_info = get_network_info()
+    current_ping = None
+    try:
+        current_ping = ping_provider(full_provider)
+    except Exception:
+        current_ping = None
+    history = ping_history.get(base_provider, [])
+    ts = datetime.datetime.now().strftime("%H:%M:%S")
+    history.append({"time": ts, "ping": current_ping})
+    if len(history) > 20:
+        history.pop(0)
+    ping_history[base_provider] = history
+    return jsonify({
+        "service_status": service_status,
+        "network_info": network_info,
+        "current_ping": current_ping,
+        "ping_history": history,
+    })
 
 
 if __name__ == "__main__":

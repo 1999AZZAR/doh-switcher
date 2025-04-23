@@ -30,6 +30,7 @@
             }
         }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gradient-to-br from-m-purple-50 via-purple-50 to-indigo-100 text-gray-800 font-sans">
     <!-- Navbar -->
@@ -86,14 +87,50 @@
                 <p class="text-sm text-gray-700">
                     <span class="font-medium">Current Provider:</span> {{ current_provider_name }}<br>
                     <span class="font-medium">Service Status:</span>
-                    <span class="{% if service_status == 'running' %}text-green-800 font-medium{% else %}text-red-600{% endif %}">{{ service_status }}</span>
+                    <span id="serviceStatus" class="{% if service_status == 'running' %}text-green-800 font-medium{% else %}text-red-600{% endif %}">{{ service_status }}</span>
                 </p>
+                <p class="text-sm text-gray-700 mt-2">
+                    <span class="font-medium">Local IP:</span> <span id="localIp">{{ network_info.local_ip or 'N/A' }}</span><br>
+                    <span class="font-medium">Gateway:</span> <span id="gateway">{{ network_info.gateway or 'N/A' }}</span><br>
+                    <span class="font-medium">DNS Servers:</span> <span id="dnsServers">{% if network_info.dns_servers %}{{ network_info.dns_servers|join(', ') }}{% else %}N/A{% endif %}</span>
+                </p>
+                <div class="flex gap-3 mt-4 flex-wrap">
+                    <form action="{{ url_for('start_service') }}" method="post">
+                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-m-green/80 hover:bg-m-green text-white rounded-full text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-m-green">
+                            <i class="material-icons-outlined text-base">play_arrow</i> Start
+                        </button>
+                    </form>
+                    <form action="{{ url_for('stop_service') }}" method="post">
+                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-m-red/80 hover:bg-m-red text-white rounded-full text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-m-red">
+                            <i class="material-icons-outlined text-base">stop</i> Stop
+                        </button>
+                    </form>
+                    <form action="{{ url_for('restart_service') }}" method="post">
+                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-m-orange/80 hover:bg-m-orange text-white rounded-full text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-m-orange">
+                            <i class="material-icons-outlined text-base">autorenew</i> Restart
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
 
         <!-- DoH Providers -->
         <div class="bg-white/70 backdrop-blur-xl shadow-lg rounded-2xl p-6 mb-10">
             <h2 class="text-lg font-semibold text-gray-800 mb-4">DoH Providers</h2>
+            <!-- Inline Add Provider Form -->
+            <form action="{{ url_for('add_provider') }}" method="post" class="flex gap-3 items-end mb-4">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input type="text" id="name" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-m-purple-300 focus:border-m-purple-500 transition text-sm" placeholder="Provider Name">
+                </div>
+                <div>
+                    <label for="url" class="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                    <input type="text" id="url" name="url" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-m-purple-300 focus:border-m-purple-500 transition text-sm" placeholder="DoH URL">
+                </div>
+                <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-m-purple-500 hover:bg-m-purple-600 text-white rounded-full text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-m-purple-400">
+                    <i class="material-icons-outlined text-base">add</i> Add
+                </button>
+            </form>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50/50">
@@ -128,6 +165,11 @@
                                         </button>
                                     </form>
                                     {% if provider not in default_providers %}
+                                        <button type="button" class="edit-btn p-1 w-8 h-8 flex items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-500" data-index="{{ loop.index0 }}" data-name="{{ provider.name }}" data-url="{{ provider.url }}" title="Edit {{ provider.name }}">
+                                            <i class="material-icons-outlined text-lg leading-none text-yellow-500">edit</i>
+                                        </button>
+                                    {% endif %}
+                                    {% if provider not in default_providers %}
                                         <form action="{{ url_for('delete_provider') }}" method="post">
                                             <input type="hidden" name="name" value="{{ provider.name }}">
                                             <input type="hidden" name="url" value="{{ provider.url }}">
@@ -144,22 +186,13 @@
             </div>
         </div>
 
-        <!-- Add Custom Provider -->
-        <div class="bg-white/70 backdrop-blur-xl shadow-lg rounded-2xl p-6">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4">Add Custom Provider</h2>
-            <form action="{{ url_for('add_provider') }}" method="post" class="flex gap-3 items-end">
-                <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Provider Name</label>
-                    <input type="text" id="name" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-m-purple-300 focus:border-m-purple-500 transition text-sm">
-                </div>
-                <div>
-                    <label for="url" class="block text-sm font-medium text-gray-700 mb-1">DoH URL</label>
-                    <input type="text" id="url" name="url" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-m-purple-300 focus:border-m-purple-500 transition text-sm">
-                </div>
-                <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-m-purple-500 hover:bg-m-purple-600 text-white rounded-full text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-m-purple-400">
-                    <i class="material-icons-outlined text-base">add</i> Add Provider
-                </button>
-            </form>
+        <!-- Ping Statistics -->
+        <div class="bg-white/70 backdrop-blur-xl shadow-lg rounded-2xl p-6 mb-10">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">Ping Statistics</h2>
+            <div class="mt-4">
+                <canvas id="pingChart" class="w-full h-48"></canvas>
+            </div>
+            <!-- log viewer removed for cleaner UI -->
         </div>
     </main>
 
@@ -194,6 +227,71 @@
                 toast.addEventListener('transitionend', () => toast.remove(), { once: true });
             }, duration);
         }
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const ctx = document.getElementById('pingChart').getContext('2d');
+            const pingChart = new Chart(ctx, {
+                type: 'line', data: { labels: [], datasets: [{ label: 'Ping (ms)', data: [], borderColor: '#7ac0ff', backgroundColor: 'rgba(122,192,255,0.3)', tension: 0.4 }] }, options: { scales: { x: { display: true }, y: { beginAtZero: true } } }
+            });
+            async function fetchStatus() {
+                try {
+                    const res = await fetch('/api/status'); const data = await res.json();
+                    document.getElementById('serviceStatus').innerText = data.service_status;
+                    document.getElementById('serviceStatus').className = data.service_status === 'running' ? 'text-green-800 font-medium' : 'text-red-600';
+                    document.getElementById('localIp').innerText = data.network_info.local_ip || 'N/A';
+                    document.getElementById('gateway').innerText = data.network_info.gateway || 'N/A';
+                    document.getElementById('dnsServers').innerText = data.network_info.dns_servers.join(', ') || 'N/A';
+                    pingChart.data.labels = data.ping_history.map(p => p.time);
+                    pingChart.data.datasets[0].data = data.ping_history.map(p => p.ping);
+                    pingChart.update();
+                    // log update removed
+                } catch(e) { console.error(e); }
+            }
+            fetchStatus(); setInterval(fetchStatus, 5000);
+        });
+    </script>
+    <!-- Edit Provider Modal -->
+    <div id="editModal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+      <div class="bg-white/90 backdrop-blur-xl shadow-lg rounded-2xl p-6 w-full max-w-md">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">Edit Provider</h2>
+        <form id="editForm" method="post" class="flex flex-col gap-4">
+          <div>
+            <label for="editName" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input type="text" id="editName" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-m-purple-300 focus:border-m-purple-500 transition text-sm">
+          </div>
+          <div>
+            <label for="editUrl" class="block text-sm font-medium text-gray-700 mb-1">URL</label>
+            <input type="text" id="editUrl" name="url" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-m-purple-300 focus:border-m-purple-500 transition text-sm">
+          </div>
+          <div class="flex gap-4 justify-end">
+            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-m-green/80 hover:bg-m-green text-white rounded-full text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-m-green">
+              <i class="material-icons-outlined text-base">save</i> Save
+            </button>
+            <button type="button" id="editCancel" class="inline-flex items-center gap-2 px-4 py-2 bg-m-red/80 hover:bg-m-red text-white rounded-full text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-m-red">
+              <i class="material-icons-outlined text-base">cancel</i> Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script>
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = btn.getAttribute('data-index');
+        const name = btn.getAttribute('data-name');
+        const url = btn.getAttribute('data-url');
+        document.getElementById('editName').value = name;
+        document.getElementById('editUrl').value = url;
+        const form = document.getElementById('editForm');
+        form.action = `/update_provider/${idx}`;
+        const modal = document.getElementById('editModal');
+        modal.classList.remove('hidden'); modal.classList.add('flex');
+      });
+    });
+    document.getElementById('editCancel').addEventListener('click', () => {
+      const modal = document.getElementById('editModal'); modal.classList.add('hidden'); modal.classList.remove('flex');
+    });
     </script>
 </body>
 </html>
