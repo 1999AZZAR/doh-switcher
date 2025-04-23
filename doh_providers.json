@@ -64,6 +64,10 @@
         "url": "https://puredns.org/dns-query"
     },
     {
+        "name": "CleanBrowsing",
+        "url": "https://doh.cleanbrowsing.org/doh/security-filter/"
+    },
+    {
         "name": "Private Next DNS",
         "url": "https://dns.nextdns.io/d79291/lappy"
     },
