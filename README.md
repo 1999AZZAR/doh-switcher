@@ -28,23 +28,42 @@ The application will only work properly after completing the Cloudflared setup p
 
 ## Installation
 
-1. Clone this repository:
+1. Clone this repository and enter the directory:
    ```bash
    git clone https://github.com/1999AZZAR/doh-switcher.git
    cd doh-switcher
    ```
 
-2. Install the required dependencies:
+2. Run the installer script:
    ```bash
-   pip install flask httpx dnslib
+   sudo ./install.sh
+   ```
+   This will:
+   - Install the `cdns` alias
+   - Create a Python virtual environment and install dependencies
+   - Set up and start the systemd service
+   - Add the `cdns` alias to your shell configuration
+
+3. Reload your shell configuration:
+   ```bash
+   source ~/.bashrc  # or ~/.zshrc, ~/.profile
    ```
 
-3. Run the application with sudo privileges (required to modify system services):
+4. Launch the Web UI:
    ```bash
-   sudo python app.py
+   cdns
    ```
+   This will silently start the service and open your browser.
 
-4. Access the web interface at `http://localhost:5003`
+### Uninstallation
+
+To remove DoH Switcher and clean up all components, run:
+```bash
+sudo ./uninstall.sh
+```
+This will:
+  - Stop any running Web UI processes and the systemd service
+  - Remove the service unit, application files, logs, and alias
 
 ## Features
 
@@ -132,7 +151,7 @@ If providers show "Failed" in testing:
 
 ### Permission Issues
 
-The application requires sudo privileges to modify system service files. Always run with:
+The application requires root privileges to modify system service files. Always run with:
 
 ```bash
 sudo python app.py

@@ -26,8 +26,16 @@ DEFAULT_PROVIDERS = [
 ]
 
 # Configure logging
+DEFAULT_LOG_FILE = "/var/log/doh-switcher.log"
+# Ensure log directory exists
+log_dir = os.path.dirname(DEFAULT_LOG_FILE)
+if not os.path.exists(log_dir):
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+    except Exception as e:
+        print(f"Error creating log directory {log_dir}: {e}")
 logging.basicConfig(
-    filename="doh_manager.log",
+    filename=DEFAULT_LOG_FILE,
     level=logging.DEBUG,  # Keep DEBUG for detailed logging during testing
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
@@ -499,4 +507,4 @@ def api_status():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5003)
+    app.run(debug=False, host="0.0.0.0", port=5003)
