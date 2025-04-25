@@ -16,15 +16,15 @@ DoH Switcher is a Flask-based web application that helps you manage the DNS over
 
 ## Prerequisites
 
-Before using DoH Switcher, you need to have Cloudflared installed and configured as a DoH service. Please follow the setup guide at:
-[DoH Setup with Cloudflared](https://gist.github.com/1999AZZAR/d5b9207aaa3302dc7fa9bab1fa4fb80f#file-doh-setup-with-cloudflared-md)
+The `install.sh` script will automatically check for Cloudflared and install it if missing. You can run:
 
-The application will only work properly after completing the Cloudflared setup process. The setup guide will walk you through:
+```bash
+sudo ./install.sh
+```
 
-1. Installing Cloudflared
-2. Setting up Cloudflared as a service
-3. Configuring your system to use the local DNS service
-4. Testing the configuration
+to install all required components.
+
+If you prefer to install prerequisites manually, see the [Prerequisites guide](Prerequisites/README.md) in the Prerequisites folder.
 
 ## Installation
 
@@ -138,7 +138,7 @@ If the service status shows "not running":
 
 1. Check the Cloudflared service manually: `sudo systemctl status cloudflared`
 2. Check logs: `sudo journalctl -u cloudflared`
-3. Ensure you've completed the [DoH Setup with Cloudflared](https://gist.github.com/1999AZZAR/d5b9207aaa3302dc7fa9bab1fa4fb80f#file-doh-setup-with-cloudflared-md)
+3. Ensure prerequisites are installed: run `sudo ./install.sh` (it will install Cloudflared if needed), or consult the [Prerequisites guide](Prerequisites/README.md)
 4. Try restarting the service: `sudo systemctl restart cloudflared`
 
 ### Failed Tests
@@ -179,4 +179,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-**Note:** This application is designed to work with the Cloudflared DoH setup as described in the [setup guide](https://gist.github.com/1999AZZAR/d5b9207aaa3302dc7fa9bab1fa4fb80f#file-doh-setup-with-cloudflared-md). Make sure to complete that setup before using this application.
+**Note:** The installer automatically handles Cloudflared setup. Run `sudo ./install.sh`, or see the [Prerequisites guide](Prerequisites/README.md) for manual installation steps.

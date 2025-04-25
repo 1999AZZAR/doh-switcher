@@ -9,6 +9,13 @@ GREEN='\e[32m'
 YELLOW='\e[33m'
 BLUE='\e[34m'
 
+# Check for prerequisites (Cloudflared)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! command -v cloudflared >/dev/null; then
+  echo -e "${YELLOW}Prerequisites missing: cloudflared not found. Installing prerequisites...${NC}"
+  sudo bash "${SCRIPT_DIR}/Prerequisites/install.sh"
+fi
+
 # Clear and show banner
 clear
 echo -e "${BLUE}========================================${NC}"
