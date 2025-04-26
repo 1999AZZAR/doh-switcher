@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Exit on error
-set -e
+# Exit on error, undefined var, and pipefail
+set -euo pipefail
+IFS=$'\n\t'
 
 # Colors for TUI
 NC='\e[0m'
@@ -8,6 +9,21 @@ RED='\e[31m'
 GREEN='\e[32m'
 YELLOW='\e[33m'
 BLUE='\e[34m'
+
+# Parse CLI options
+SKIP_CONFIRM=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -y|--yes) SKIP_CONFIRM=true; shift;;
+    -h|--help) echo "Usage: $0 [-y|--yes]"; exit 0;;
+    *) break;;
+  esac
+done
+
+# Ensure running as root
+if [[ $EUID -ne 0 ]]; then
+  echo -e "${RED}Please run as root or via sudo.${NC}"; exit 1
+fi
 
 # Check for prerequisites (Cloudflared)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,9 +40,11 @@ echo -e "${BLUE}========================================${NC}"
 echo
 
 # Prompt to confirm installation
-echo -ne "${YELLOW}Proceed with installation? (y/N):${NC} "
-read confirm
-[[ $confirm != [yY] ]] && echo -e "${RED}Installation aborted.${NC}" && exit 1
+if ! $SKIP_CONFIRM; then
+  echo -ne "${YELLOW}Proceed with installation? (y/N):${NC} "
+  read confirm
+  [[ $confirm != [yY] ]] && echo -e "${RED}Installation aborted.${NC}" && exit 1
+fi
 
 # Core script install
 CORE_SCRIPT_DEST_NAME="doh-switcher-core"  # override if needed
@@ -40,9 +58,7 @@ WEBUI_SERVICE_FILE="/etc/systemd/system/${WEBUI_SERVICE_NAME}.service"
 WEBUI_SOURCE_DIR_NAME="."  # adjust if your source is in a subdir like 'webui'
 WEBUI_VENV_PATH="${WEBUI_APP_DIR}/venv"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-echo -e "${YELLOW}[1/7] Installing core script to ${CORE_BIN_PATH}...${NC}"
+echo -e "${YELLOW}Installing core script to ${CORE_BIN_PATH}...${NC}"
 sudo install -m 0755 "${SCRIPT_DIR}/change_dns.sh" "${CORE_BIN_PATH}"
 echo -e "${GREEN}[OK] Core script installed${NC}"
 

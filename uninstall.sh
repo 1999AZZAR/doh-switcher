@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
+IFS=$'\n\t'
 
 # Colors for TUI
 NC='\e[0m'
@@ -8,14 +9,33 @@ GREEN='\e[32m'
 YELLOW='\e[33m'
 BLUE='\e[34m'
 
+# Parse CLI options
+SKIP_CONFIRM=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -y|--yes) SKIP_CONFIRM=true; shift;;
+    -h|--help) echo "Usage: $0 [-y|--yes]"; exit 0;;
+    *) break;;
+  esac
+done
+
+# Ensure running as root
+if [[ $EUID -ne 0 ]]; then
+  echo -e "${RED}Please run as root or via sudo.${NC}"
+  exit 1
+fi
+
 clear
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}   DoH Switcher Uninstaller v1.0   ${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo
-echo -ne "${YELLOW}Proceed with uninstallation? (y/N):${NC} "
-read confirm
-[[ $confirm != [yY] ]] && echo -e "${RED}Uninstallation aborted.${NC}" && exit 1
+
+if ! $SKIP_CONFIRM; then
+  echo -ne "${YELLOW}Proceed with uninstallation? (y/N):${NC} "
+  read confirm
+  [[ $confirm != [yY] ]] && echo -e "${RED}Uninstallation aborted.${NC}" && exit 1
+fi
 
 # Core script settings
 CORE_SCRIPT_DEST_NAME="doh-switcher-core"

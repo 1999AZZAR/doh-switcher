@@ -6,3 +6,6 @@ flask-socketio
 # for WebSocket support
 eventlet
 # async worker for Socket.IO
+flasgger
+flask-cors
+python-dotenv

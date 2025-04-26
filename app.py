@@ -1,5 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import os
+import config
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flasgger import Swagger
 import json
 import logging
 import subprocess
@@ -13,7 +15,11 @@ import requests
 import sqlite3
 
 app = Flask(__name__)
-app.secret_key = "doh_switcher_secret_key"
+# load configuration
+app.config.from_object(config)
+app.secret_key = app.config['SECRET_KEY']
+Swagger(app)
+
 socketio = SocketIO(app)
 
 # Constants
@@ -31,7 +37,8 @@ DEFAULT_PROVIDERS = [
 ]
 
 # Configure logging
-DEFAULT_LOG_FILE = "/var/log/doh-switcher.log"
+# log file path from config
+DEFAULT_LOG_FILE = app.config['LOG_FILE']
 # Ensure log directory exists
 log_dir = os.path.dirname(DEFAULT_LOG_FILE)
 if not os.path.exists(log_dir):
@@ -49,8 +56,8 @@ logging.basicConfig(
 test_results = {}
 ping_history = {}  # in-memory history for WebSocket; persisted in DB
 
-# SQLite DB
-DB_PATH = "doh_history.db"
+# database path from config
+DB_PATH = app.config['DB_PATH']
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -270,6 +277,7 @@ def index():
         network_info=network_info,
         default_providers=DEFAULT_PROVIDERS,
         test_results=test_results,
+        test_interval=app.config['TEST_INTERVAL']
     )
 
 
@@ -659,8 +667,9 @@ def doh_query_test(url):
 def cleanup_old_records():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("DELETE FROM ping_history WHERE time <= datetime('now','-6 hours')")
-    c.execute("DELETE FROM dns_lookup_history WHERE time <= datetime('now','-6 hours')")
+    hrs = app.config['RETENTION_HOURS']
+    c.execute(f"DELETE FROM ping_history WHERE time <= datetime('now','-{hrs} hours')")
+    c.execute(f"DELETE FROM dns_lookup_history WHERE time <= datetime('now','-{hrs} hours')")
     conn.commit()
     conn.close()
 
@@ -704,7 +713,7 @@ def background_thread():
             "doh_ok": doh_ok,
             "ping_history": hist
         }, broadcast=True)
-        socketio.sleep(5)
+        socketio.sleep(app.config['TEST_INTERVAL'])
 
 if __name__ == "__main__":
     # start background task for real-time updates
