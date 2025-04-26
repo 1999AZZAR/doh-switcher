@@ -2,3 +2,7 @@ flask
 requests
 httpx
 dnslib
+flask-socketio
+# for WebSocket support
+eventlet
+# async worker for Socket.IO

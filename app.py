@@ -7,9 +7,14 @@ import re
 from functools import wraps
 from urllib.parse import urlparse
 import datetime
+import time
+from flask_socketio import SocketIO
+import requests
+import sqlite3
 
 app = Flask(__name__)
 app.secret_key = "doh_switcher_secret_key"
+socketio = SocketIO(app)
 
 # Constants
 PROVIDERS_FILE = "doh_providers.json"
@@ -42,7 +47,24 @@ logging.basicConfig(
 
 # Cache for test results
 test_results = {}
-ping_history = {}
+ping_history = {}  # in-memory history for WebSocket; persisted in DB
+
+# SQLite DB
+DB_PATH = "doh_history.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS ping_history (id INTEGER PRIMARY KEY, provider TEXT, time TEXT, ping REAL, doh_ok INTEGER)")
+    c.execute("CREATE TABLE IF NOT EXISTS dns_lookup_history (id INTEGER PRIMARY KEY, domain TEXT, time TEXT, result TEXT)")
+    # create indexes for retention and query efficiency
+    c.execute("CREATE INDEX IF NOT EXISTS idx_ping_provider_time ON ping_history(provider, time)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_dns_time ON dns_lookup_history(time)")
+    conn.commit()
+    conn.close()
+
+# initialize SQLite DB
+init_db()
 
 def log_event(message, level="info"):
     """Log events with specified level."""
@@ -364,6 +386,8 @@ def restore():
 @app.route("/test_providers", methods=["POST"])
 @require_sudo
 def test_providers():
+    # clean old records before manual tests
+    cleanup_old_records()
     global test_results
     providers = load_providers()
     test_results = {}
@@ -372,6 +396,18 @@ def test_providers():
         ping_result = ping_provider(url)
         test_results[url] = {"ping": ping_result}
         log_event(f"Tested {provider['name']}: Ping={ping_result}")
+        # insert manual ping/test into SQLite
+        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        doh_ok = doh_query_test(url)
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        ping_val = ping_result if isinstance(ping_result, (int, float)) else None
+        c.execute(
+            "INSERT INTO ping_history(provider, time, ping, doh_ok) VALUES (?,?,?,?)",
+            (url, ts, ping_val, int(doh_ok))
+        )
+        conn.commit()
+        conn.close()
     flash("All provider tests completed.", "success")
     return redirect(url_for("index"))
 
@@ -379,12 +415,26 @@ def test_providers():
 @app.route("/test_provider", methods=["POST"])
 @require_sudo
 def test_provider():
+    # clean old records before manual test
+    cleanup_old_records()
     global test_results
     url = request.form.get("url")
     name = request.form.get("name")
     if url and name:
         ping_result = ping_provider(url)
         test_results[url] = {"ping": ping_result}
+        # insert manual ping/test into SQLite
+        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        doh_ok = doh_query_test(url)
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        ping_val = ping_result if isinstance(ping_result, (int, float)) else None
+        c.execute(
+            "INSERT INTO ping_history(provider, time, ping, doh_ok) VALUES (?,?,?,?)",
+            (url, ts, ping_val, int(doh_ok))
+        )
+        conn.commit()
+        conn.close()
         flash(f"Test completed for {name}.", "success")
         log_event(f"Tested {name}: Ping={ping_result}")
     else:
@@ -484,20 +534,20 @@ def restart_service():
 @app.route("/api/status")
 @require_sudo
 def api_status():
-    _, full_provider, base_provider = get_current_doh_provider()
+    _, full_url, base = get_current_doh_provider()
     service_status = get_service_status()
     network_info = get_network_info()
     current_ping = None
     try:
-        current_ping = ping_provider(full_provider)
+        current_ping = ping_provider(full_url)
     except Exception:
         current_ping = None
-    history = ping_history.get(base_provider, [])
-    ts = datetime.datetime.now().strftime("%H:%M:%S")
+    history = ping_history.get(base, [])
+    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     history.append({"time": ts, "ping": current_ping})
     if len(history) > 20:
         history.pop(0)
-    ping_history[base_provider] = history
+    ping_history[base] = history
     return jsonify({
         "service_status": service_status,
         "network_info": network_info,
@@ -505,6 +555,158 @@ def api_status():
         "ping_history": history,
     })
 
+@app.route("/api/lookup", methods=["POST"])
+@require_sudo
+def api_lookup():
+    # clean old DNS lookup records before inserting
+    cleanup_old_records()
+    data = request.get_json() or request.form
+    domain = data.get("domain")
+    if not domain:
+        return jsonify({"error": "No domain provided"}), 400
+    domain = domain.strip()
+    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        res = subprocess.run(["dig", "+short", domain], capture_output=True, text=True, check=True)
+        result = res.stdout.splitlines()
+    except subprocess.CalledProcessError:
+        result = []
+    # record lookup in SQLite
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO dns_lookup_history(domain, time, result) VALUES (?,?,?)",
+        (domain, ts, json.dumps(result))
+    )
+    conn.commit()
+    # fetch recent lookup history
+    c.execute(
+        "SELECT time, domain, result FROM dns_lookup_history ORDER BY time DESC LIMIT 20"
+    )
+    rows = c.fetchall()
+    conn.close()
+    history = [{"time": r[0], "domain": r[1], "result": json.loads(r[2])} for r in rows]
+    return jsonify({"time": ts, "domain": domain, "result": result, "history": history})
+
+@app.route("/api/ping_history", methods=["GET"])
+@require_sudo
+def api_ping_history():
+    provider = request.args.get("provider")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "SELECT time, ping FROM ping_history WHERE provider = ? ORDER BY time DESC LIMIT 20",
+        (provider,)
+    )
+    rows = c.fetchall()
+    conn.close()
+    history = [{"time": r[0], "ping": r[1]} for r in rows]
+    return jsonify({provider: history})
+
+@app.route("/api/clear_ping_history", methods=["POST"])
+@require_sudo
+def clear_ping_history():
+    data = request.get_json() or request.form
+    provider = data.get("provider")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    if provider:
+        c.execute("DELETE FROM ping_history WHERE provider = ?", (provider,))
+    else:
+        c.execute("DELETE FROM ping_history")
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "ok"})
+
+
+# Analytics endpoint for ping history stats
+@app.route("/api/analytics", methods=["GET"])
+@require_sudo
+def api_analytics():
+    """Compute ping stats from in-memory JSON history."""
+    provider = request.args.get("provider")
+    recs = ping_history.get(provider, [])
+    # filter only numeric pings
+    vals = [r.get("ping") for r in recs if isinstance(r.get("ping"), (int, float))]
+    if vals:
+        mn = min(vals)
+        mx = max(vals)
+        avg = round(sum(vals) / len(vals), 2)
+        count = len(vals)
+    else:
+        mn = mx = avg = None
+        count = 0
+    return jsonify({
+        "provider": provider,
+        "min": mn,
+        "max": mx,
+        "avg": avg,
+        "count": count
+    })
+
+# DNS-over-HTTPS validation
+def doh_query_test(url):
+    """Perform a DNS-over-HTTPS query to validate service."""
+    try:
+        r = requests.get(f"{url}?name=example.com&type=A", headers={"Accept":"application/dns-json"}, timeout=3)
+        data = r.json()
+        return "Answer" in data and bool(data.get("Answer"))
+    except Exception as e:
+        log_event(f"DoH query error for {url}: {e}", "error")
+        return False
+
+# Automatic retention: purge records older than 6 hours
+def cleanup_old_records():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM ping_history WHERE time <= datetime('now','-6 hours')")
+    c.execute("DELETE FROM dns_lookup_history WHERE time <= datetime('now','-6 hours')")
+    conn.commit()
+    conn.close()
+
+# Background thread for real-time status events
+def background_thread():
+    """Send status_update events every 5 seconds, and clean old records."""
+    while True:
+        cleanup_old_records()
+        _, full_url, base = get_current_doh_provider()
+        status = get_service_status()
+        net = get_network_info()
+        ping = None
+        try:
+            ping = ping_provider(full_url)
+        except:
+            ping = None
+        doh_ok = doh_query_test(full_url)
+        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # update history
+        hist = ping_history.get(base, [])
+        ping_val = ping if isinstance(ping, (int, float)) else None
+        hist.append({"time": ts, "ping": ping_val, "doh_ok": doh_ok})
+        if len(hist) > 100:
+            hist.pop(0)
+        ping_history[base] = hist
+        # insert into SQLite DB
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        ping_val = ping if isinstance(ping, (int, float)) else None
+        c.execute(
+            "INSERT INTO ping_history(provider, time, ping, doh_ok) VALUES (?,?,?,?)",
+            (base, ts, ping_val, int(doh_ok))
+        )
+        conn.commit()
+        conn.close()
+        socketio.emit("status_update", {
+            "time": ts,
+            "service_status": status,
+            "network_info": net,
+            "current_ping": ping,
+            "doh_ok": doh_ok,
+            "ping_history": hist
+        }, broadcast=True)
+        socketio.sleep(5)
 
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=5003)
+    # start background task for real-time updates
+    socketio.start_background_task(background_thread)
+    socketio.run(app, debug=False, host="0.0.0.0", port=5003)
