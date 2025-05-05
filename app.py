@@ -261,7 +261,6 @@ def get_network_info():
 
 
 @app.route("/")
-@require_sudo
 def index():
     providers = load_providers()
     current_provider_name, full_provider, base_provider = get_current_doh_provider()
@@ -392,46 +391,46 @@ def restore():
 
 
 @app.route("/test_providers", methods=["POST"])
-@require_sudo
 def test_providers():
-    # clean old records before manual tests
-    cleanup_old_records()
-    global test_results
-    providers = load_providers()
-    test_results = {}
-    for provider in providers:
-        url = provider["url"]
-        ping_result = ping_provider(url)
-        test_results[url] = {"ping": ping_result}
-        log_event(f"Tested {provider['name']}: Ping={ping_result}")
-        # insert manual ping/test into SQLite
-        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        doh_ok = doh_query_test(url)
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        ping_val = ping_result if isinstance(ping_result, (int, float)) else None
-        c.execute(
-            "INSERT INTO ping_history(provider, time, ping, doh_ok) VALUES (?,?,?,?)",
-            (url, ts, ping_val, int(doh_ok))
-        )
-        conn.commit()
-        conn.close()
-    flash("All provider tests completed.", "success")
+    try:
+        cleanup_old_records()
+        global test_results
+        providers = load_providers()
+        test_results = {}
+        for provider in providers:
+            url = provider["url"]
+            ping_result = ping_provider(url)
+            test_results[url] = {"ping": ping_result}
+            log_event(f"Tested {provider['name']}: Ping={ping_result}")
+            ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            doh_ok = doh_query_test(url)
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            ping_val = ping_result if isinstance(ping_result, (int, float)) else None
+            c.execute(
+                "INSERT INTO ping_history(provider, time, ping, doh_ok) VALUES (?,?,?,?)",
+                (url, ts, ping_val, int(doh_ok))
+            )
+            conn.commit()
+            conn.close()
+        flash("All provider tests completed.", "success")
+    except Exception as e:
+        log_event(f"Error testing providers: {e}", "error")
+        flash(f"Error testing providers: {e}", "danger")
     return redirect(url_for("index"))
 
 
 @app.route("/test_provider", methods=["POST"])
-@require_sudo
 def test_provider():
-    # clean old records before manual test
-    cleanup_old_records()
-    global test_results
-    url = request.form.get("url")
-    name = request.form.get("name")
-    if url and name:
+    try:
+        cleanup_old_records()
+        global test_results
+        url = request.form.get("url")
+        name = request.form.get("name")
+        if not url or not name:
+            raise ValueError("Provider name and URL are required")
         ping_result = ping_provider(url)
         test_results[url] = {"ping": ping_result}
-        # insert manual ping/test into SQLite
         ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         doh_ok = doh_query_test(url)
         conn = sqlite3.connect(DB_PATH)
@@ -445,8 +444,9 @@ def test_provider():
         conn.close()
         flash(f"Test completed for {name}.", "success")
         log_event(f"Tested {name}: Ping={ping_result}")
-    else:
-        flash("Provider name and URL are required.", "danger")
+    except Exception as e:
+        log_event(f"Error testing provider {name if locals().get('name') else url}: {e}", "error")
+        flash(f"Error testing provider: {e}", "danger")
     return redirect(url_for("index"))
 
 

@@ -377,7 +377,7 @@
     document.querySelectorAll('.ping-history-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const url = btn.getAttribute('data-url');
-        const res = await fetch('/api/ping_history');
+        const res = await fetch(`/api/ping_history?provider=${encodeURIComponent(url)}`);
         const data = await res.json();
         const history = data[url] || [];
         document.getElementById('pingHistoryProvider').innerText = url;
