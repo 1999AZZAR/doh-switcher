@@ -70,13 +70,40 @@ StartLimitIntervalSec=60
 StartLimitBurst=10
 
 [Service]
+# Service execution
 Type=simple
 ExecStart=/usr/bin/cloudflared proxy-dns --port 53 --upstream $UPSTREAM
-User=cloudflared
-Restart=always
-RestartSec=2
 TimeoutStopSec=20
-LimitNOFILE=4096
+Restart=on-failure
+RestartSec=5s
+
+# User and group configuration
+User=cloudflared
+Group=cloudflared
+
+# Capability controls: Limit process abilities
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+
+# Filesystem sandboxing: Restrict file access
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# System call and resource controls: Restrict kernel interactions
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+SystemCallArchitectures=native
+
+# Resource limits
+LimitNOFILE=1024
+LimitNPROC=10
 
 [Install]
 WantedBy=multi-user.target
