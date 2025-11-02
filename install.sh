@@ -48,6 +48,7 @@ fi
 
 # Core script install
 CORE_SCRIPT_DEST_NAME="doh-switcher-core"  # override if needed
+APP_FILE="run.py"  # Updated to use new entry point
 CORE_BIN_PATH="/usr/local/bin/${CORE_SCRIPT_DEST_NAME}"
 DEFAULT_LOG_FILE="/var/log/doh-switcher.log"
 
@@ -88,7 +89,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=${WEBUI_APP_DIR}
-ExecStart=${WEBUI_VENV_PATH}/bin/python ${WEBUI_APP_DIR}/app.py
+ExecStart=${WEBUI_VENV_PATH}/bin/python ${WEBUI_APP_DIR}/run.py
 Restart=on-failure
 StandardOutput=append:${DEFAULT_LOG_FILE}
 StandardError=append:${DEFAULT_LOG_FILE}

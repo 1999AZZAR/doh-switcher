@@ -120,11 +120,23 @@ DoH Switcher manages the Cloudflared service by:
 
 ### File Structure
 
-- `app.py`: Main Flask application and backend logic
-- `templates/index.html`: Web interface template
-- `static/css/styles.css`: CSS styling for the web interface
-- `doh_providers.json`: Saved DoH providers configuration
-- `doh_providers_backup.json`: Backup of the configuration
+The project follows Flask best practices with a modular structure:
+
+```
+doh-switcher/
+├── app/                      # Main application package
+│   ├── services/            # Business logic layer
+│   ├── utils/               # Utility functions
+│   ├── routes.py           # Route handlers
+│   └── models.py           # Data models
+├── templates/               # Jinja2 templates
+├── static/                  # CSS, JS, images
+├── tests/                   # Unit tests
+├── run.py                   # Application entry point
+└── config.py               # Configuration
+```
+
+For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ### Logging
 
