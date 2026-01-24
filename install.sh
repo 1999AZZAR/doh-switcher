@@ -60,7 +60,7 @@ WEBUI_SOURCE_DIR_NAME="."  # adjust if your source is in a subdir like 'webui'
 WEBUI_VENV_PATH="${WEBUI_APP_DIR}/venv"
 
 echo -e "${YELLOW}Installing core script to ${CORE_BIN_PATH}...${NC}"
-sudo install -m 0755 "${SCRIPT_DIR}/change_dns.sh" "${CORE_BIN_PATH}"
+sudo install -m 0755 "${SCRIPT_DIR}/scripts/change_dns.sh" "${CORE_BIN_PATH}"
 echo -e "${GREEN}[OK] Core script installed${NC}"
 
 echo -e "${YELLOW}[2/7] Creating log file at ${DEFAULT_LOG_FILE}...${NC}"

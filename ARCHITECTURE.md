@@ -39,23 +39,25 @@ doh-switcher/
 ├── install.sh                   # Installation script
 ├── uninstall.sh                # Uninstallation script
 └── README.md                    # Main documentation
-
 ```
 
 ## Architecture Layers
 
 ### 1. Presentation Layer (`templates/`, `static/`)
+
 - Web UI using Jinja2 templates
 - Tailwind CSS for styling
 - WebSocket for real-time updates
 
 ### 2. Route Layer (`app/routes.py`)
+
 - HTTP request handlers
 - Form processing
 - API endpoints
 - Delegates to service layer
 
 ### 3. Service Layer (`app/services/`)
+
 - **doh_service.py**: Manages cloudflared service operations
 - **provider_service.py**: Provider CRUD and configuration
 - **network_service.py**: Network diagnostics and ping operations
@@ -63,11 +65,13 @@ doh-switcher/
 - **monitoring.py**: Background tasks for real-time monitoring
 
 ### 4. Utility Layer (`app/utils/`)
+
 - **validators.py**: URL validation and normalization
 - **decorators.py**: Custom decorators (sudo checks)
 - **logging.py**: Centralized logging
 
 ### 5. Data Layer
+
 - **SQLite Database**: Stores ping history and DNS lookup records
 - **JSON Files**: Provider configuration storage
 - **models.py**: Constants and in-memory state
@@ -75,7 +79,9 @@ doh-switcher/
 ## Key Design Patterns
 
 ### Application Factory Pattern
+
 `app/__init__.py` uses the factory pattern:
+
 ```python
 def create_app():
     app = Flask(__name__)
@@ -84,21 +90,25 @@ def create_app():
 ```
 
 ### Service Layer Pattern
+
 Business logic is separated from routes:
+
 ```python
 # routes.py - presentation
 @app.route("/select_provider", methods=["POST"])
 def select_provider():
     # Delegates to service
     update_doh_service(url)
-    
+
 # doh_service.py - business logic
 def update_doh_service(doh_url):
     # Actual implementation
 ```
 
 ### Decorator Pattern
+
 Reusable functionality via decorators:
+
 ```python
 @app.route("/api/status")
 @require_sudo
@@ -116,6 +126,7 @@ def api_status():
 ## Configuration Management
 
 Uses environment variables with fallbacks:
+
 ```python
 # config.py
 SECRET_KEY = os.getenv("SECRET_KEY", "default_key")
@@ -125,6 +136,7 @@ LOG_FILE = os.getenv("LOG_FILE", "/var/log/doh-switcher.log")
 ## Database Schema
 
 **ping_history**
+
 - `id`: INTEGER PRIMARY KEY
 - `provider`: TEXT (DoH URL)
 - `time`: TEXT (timestamp)
@@ -132,6 +144,7 @@ LOG_FILE = os.getenv("LOG_FILE", "/var/log/doh-switcher.log")
 - `doh_ok`: INTEGER (1=success, 0=failure)
 
 **dns_lookup_history**
+
 - `id`: INTEGER PRIMARY KEY
 - `domain`: TEXT
 - `time`: TEXT (timestamp)
@@ -140,11 +153,13 @@ LOG_FILE = os.getenv("LOG_FILE", "/var/log/doh-switcher.log")
 ## Running the Application
 
 ### Development
+
 ```bash
 sudo python run.py
 ```
 
 ### Production (systemd)
+
 ```bash
 sudo systemctl start doh-switcher
 sudo systemctl enable doh-switcher
@@ -153,6 +168,7 @@ sudo systemctl enable doh-switcher
 ## Testing Structure (To Be Implemented)
 
 Recommended test structure:
+
 ```
 tests/
 ├── __init__.py
@@ -168,12 +184,14 @@ tests/
 ## Migration from Legacy
 
 The monolithic `app.py` (722 lines) has been refactored into:
+
 - `app/__init__.py` (48 lines) - App factory
 - `app/routes.py` (389 lines) - Routes only
 - `app/services/*.py` (~200 lines) - Business logic
 - `app/utils/*.py` (~50 lines) - Utilities
 
 This provides:
+
 - Better separation of concerns
 - Easier testing
 - Improved maintainability
