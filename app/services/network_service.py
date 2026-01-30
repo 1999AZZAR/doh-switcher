@@ -30,9 +30,26 @@ def get_network_info():
 def ping_provider(url):
     """Ping the provider's hostname and return the average RTT."""
     from urllib.parse import urlparse
+    import ipaddress
     try:
-        parsed = urlparse(url)
-        hostname = parsed.hostname
+        hostname = None
+        # Try as IP first
+        try:
+            ipaddress.ip_address(url)
+            hostname = url
+        except ValueError:
+            pass
+
+        if not hostname:
+            parsed = urlparse(url)
+            hostname = parsed.hostname
+        
+        # Fallback if parsing failed (e.g. invalid URL)
+        if not hostname:
+             # Try to extract from string if scheme is missing but urlparse failed to capture netloc
+             # (though normalize_url usually ensures scheme)
+             hostname = url
+
         result = subprocess.run(
             ["ping", "-c", "3", "-W", "2", hostname], capture_output=True, text=True
         )

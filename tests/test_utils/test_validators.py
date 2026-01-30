@@ -21,5 +21,11 @@ class TestValidators(unittest.TestCase):
         result = normalize_url(url)
         self.assertFalse(result.endswith("/"))
 
+    def test_normalize_ip(self):
+        """Test normalization of plain IP."""
+        url = "1.1.1.1"
+        result = normalize_url(url)
+        self.assertEqual(result, "1.1.1.1")
+
 if __name__ == '__main__':
     unittest.main()

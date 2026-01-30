@@ -5,13 +5,13 @@ import subprocess
 from flask import render_template, request, redirect, url_for, flash, jsonify, current_app
 from app.models import test_results, ping_history, DEFAULT_PROVIDERS
 from app.services.provider_service import load_providers, save_providers, backup_config, restore_config
-from app.services.doh_service import (
-    update_doh_service, get_current_doh_provider, get_service_status, 
-    control_service, doh_query_test
+from app.services.dns_service import (
+    update_dns_service, get_current_provider, get_service_status, 
+    control_service, test_provider_resolution
 )
 from app.services.network_service import get_network_info, ping_provider
 from app.services.database import cleanup_old_records
-from app.utils.validators import normalize_url, validate_doh_url
+from app.utils.validators import normalize_url, validate_provider
 from app.utils.decorators import require_sudo
 from app.utils.logging import log_event
 
@@ -20,7 +20,7 @@ def register_routes(app):
     @app.route("/")
     def index():
         providers = load_providers()
-        current_provider_name, full_provider, base_provider = get_current_doh_provider()
+        current_provider_name, full_provider, base_provider = get_current_provider()
         service_status = get_service_status()
         network_info = get_network_info()
         return render_template(
@@ -45,9 +45,9 @@ def register_routes(app):
             flash("Provider name and URL are required.", "danger")
             return redirect(url_for("index"))
         try:
-            update_doh_service(url)
-            flash(f"Updated DoH to: {name}", "success")
-            log_event(f"Updated DoH to: {name} ({url})")
+            update_dns_service(url)
+            flash(f"Updated DNS to: {name}", "success")
+            log_event(f"Updated DNS to: {name} ({url})")
         except Exception as e:
             flash(f"Error updating provider: {e}", "danger")
             log_event(f"Error updating provider: {e}", "error")
@@ -63,12 +63,12 @@ def register_routes(app):
             return redirect(url_for("index"))
 
         normalized_url = normalize_url(url)
-        if not validate_doh_url(normalized_url):
+        if not validate_provider(normalized_url):
             flash(
-                f"Invalid DoH URL: {url}. The server is not reachable. Please verify the URL and try again.",
+                f"Invalid Provider URL/IP: {url}. The server is not reachable. Please verify the URL/IP and try again.",
                 "danger",
             )
-            log_event(f"Failed to add provider {name}: Invalid DoH URL {url}", "error")
+            log_event(f"Failed to add provider {name}: Invalid URL/IP {url}", "error")
             return redirect(url_for("index"))
 
         providers = load_providers()
@@ -80,7 +80,7 @@ def register_routes(app):
         providers.append(new_provider)
         try:
             save_providers(providers)
-            update_doh_service(normalized_url)
+            update_dns_service(normalized_url)
             flash(f"Added and updated to provider: {name}", "success")
             log_event(f"Added provider: {name} ({normalized_url})")
         except Exception as e:
@@ -141,7 +141,7 @@ def register_routes(app):
                 ping_result = ping_provider(url)
                 test_results[url] = {"ping": ping_result}
                 ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                doh_ok = doh_query_test(url)
+                doh_ok = test_provider_resolution(url)
                 conn = sqlite3.connect(app.config['DB_PATH'])
                 c = conn.cursor()
                 ping_val = ping_result if isinstance(ping_result, (int, float)) else None
@@ -170,7 +170,7 @@ def register_routes(app):
             ping_result = ping_provider(url)
             test_results[url] = {"ping": ping_result}
             ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            doh_ok = doh_query_test(url)
+            doh_ok = test_provider_resolution(url)
             conn = sqlite3.connect(app.config['DB_PATH'])
             c = conn.cursor()
             ping_val = ping_result if isinstance(ping_result, (int, float)) else None
@@ -216,8 +216,8 @@ def register_routes(app):
             flash("Name and URL cannot be empty", "danger")
             return redirect(url_for("edit_provider", index=index))
         normalized_url = normalize_url(url)
-        if not validate_doh_url(normalized_url):
-            flash(f"Invalid DoH URL: {url}. The server is not reachable. Please verify the URL and try again.", "danger")
+        if not validate_provider(normalized_url):
+            flash(f"Invalid Provider URL/IP: {url}. The server is not reachable. Please verify and try again.", "danger")
             return redirect(url_for("edit_provider", index=index))
         for idx, p in enumerate(providers):
             if idx != index and normalize_url(p["url"]) == normalized_url:
@@ -227,7 +227,7 @@ def register_routes(app):
         providers[index]["url"] = normalized_url
         try:
             save_providers(providers)
-            update_doh_service(normalized_url)
+            update_dns_service(normalized_url)
             flash(f"Provider updated: {name}", "success")
             log_event(f"Updated provider: {name} ({normalized_url})")
         except Exception as e:
@@ -265,7 +265,7 @@ def register_routes(app):
     @app.route("/api/status")
     @require_sudo
     def api_status():
-        _, full_url, base = get_current_doh_provider()
+        _, full_url, base = get_current_provider()
         service_status = get_service_status()
         network_info = get_network_info()
         current_ping = None

@@ -7,7 +7,7 @@ import os
 socketio = SocketIO()
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder='../templates', static_folder='../static')
     app.config.from_object('config')
     app.secret_key = app.config['SECRET_KEY']
     
@@ -32,7 +32,8 @@ def create_app():
     
     # Initialize database
     from app.services.database import init_db
-    init_db()
+    with app.app_context():
+        init_db()
     
     # Register routes
     from app.routes import register_routes
