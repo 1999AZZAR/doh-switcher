@@ -41,6 +41,6 @@ def create_app():
     
     # Start background task
     from app.services.monitoring import background_thread
-    socketio.start_background_task(background_thread)
+    socketio.start_background_task(background_thread, app)
     
     return app

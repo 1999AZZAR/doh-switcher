@@ -88,8 +88,8 @@
                 <p class="text-sm text-gray-700">
                     <span class="font-medium">Current Provider:</span> {{ current_provider_name }}<br>
                     <span class="font-medium">Service Status:</span>
-                    <span id="serviceStatus" class="{% if service_status == 'running' %}text-green-800 font-medium{% else %}text-red-600{% endif %}">{{ service_status }}</span>
-                    <br><span class="font-medium">DoH OK:</span> <span id="dohStatus"><i class="material-icons-outlined text-gray-500">help_outline</i></span>
+                    <span id="serviceStatus" class="{% if 'running' in service_status or 'bypassed' in service_status %}text-green-800 font-medium{% else %}text-red-600{% endif %}">{{ service_status }}</span>
+                    <br><span class="font-medium">DNS Resolution:</span> <span id="dohStatus"><i class="material-icons-outlined text-gray-500">help_outline</i></span>
                 </p>
                 <p class="text-sm text-gray-700 mt-2">
                     <span class="font-medium">Local IP:</span> <span id="localIp">{{ network_info.local_ip or 'N/A' }}</span><br>
@@ -267,15 +267,34 @@
             async function fetchStatus() {
                 try {
                     const res = await fetch('/api/status'); const data = await res.json();
-                    document.getElementById('serviceStatus').innerText = data.service_status;
-                    document.getElementById('serviceStatus').className = data.service_status === 'running' ? 'text-green-800 font-medium' : 'text-red-600';
+                    const statusEl = document.getElementById('serviceStatus');
+                    statusEl.innerText = data.service_status;
+                    
+                    if (data.service_status.includes('running') || data.service_status.includes('bypassed')) {
+                        statusEl.className = 'text-green-800 font-medium';
+                    } else {
+                        statusEl.className = 'text-red-600';
+                    }
+
                     document.getElementById('localIp').innerText = data.network_info.local_ip || 'N/A';
                     document.getElementById('gateway').innerText = data.network_info.gateway || 'N/A';
                     document.getElementById('dnsServers').innerText = data.network_info.dns_servers.join(', ') || 'N/A';
+                    
+                    // Update DNS Resolution Status
+                    const dohStatusEl = document.getElementById('dohStatus');
+                    const isOk = data.ping_history && data.ping_history.length > 0 ? data.ping_history[data.ping_history.length - 1].doh_ok : null;
+                    
+                    if (isOk === 1 || isOk === true) {
+                        dohStatusEl.innerHTML = '<i class="material-icons-outlined text-green-600">check_circle</i>';
+                    } else if (isOk === 0 || isOk === false) {
+                        dohStatusEl.innerHTML = '<i class="material-icons-outlined text-red-600">error_outline</i>';
+                    } else {
+                        dohStatusEl.innerHTML = '<i class="material-icons-outlined text-gray-500">help_outline</i>';
+                    }
+
                     pingChart.data.labels = data.ping_history.map(p => p.time);
                     pingChart.data.datasets[0].data = data.ping_history.map(p => p.ping);
                     pingChart.update();
-                    // log update removed
                 } catch(e) { console.error(e); }
             }
             fetchStatus(); setInterval(fetchStatus, 5000);

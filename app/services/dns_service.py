@@ -20,10 +20,15 @@ def get_provider_type(url):
 def set_system_dns(nameserver):
     """Update /etc/resolv.conf with the specified nameserver."""
     try:
-        # Check if systemd-resolved is active, if so we might need to use resolvectl
-        # But install.sh disabled it. Assuming direct /etc/resolv.conf access.
+        # Check if file is immutable and remove the bit if so
+        subprocess.run(["sudo", "chattr", "-i", RESOLV_CONF], check=False)
+        
         with open(RESOLV_CONF, "w") as f:
             f.write(f"nameserver {nameserver}\n")
+            
+        # Restore immutable bit to prevent OS from overwriting it
+        subprocess.run(["sudo", "chattr", "+i", RESOLV_CONF], check=False)
+        
         log_event(f"Updated system DNS to {nameserver}")
     except IOError as e:
         log_event(f"Error updating resolv.conf: {e}", "error")
@@ -113,6 +118,11 @@ def get_current_provider():
 def get_service_status():
     """Check if the cloudflared service is running."""
     try:
+        # Check if we are in Plain DNS mode
+        _, _, base_provider = get_current_provider()
+        if is_valid_ip(base_provider) and base_provider != "127.0.0.1":
+             return "bypassed (Plain DNS)"
+
         result = subprocess.run(
             ["systemctl", "is-active", "--quiet", "cloudflared"], check=False
         )
