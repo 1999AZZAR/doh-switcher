@@ -11,6 +11,31 @@ A modern, web-based interface to manage and switch between DNS over HTTPS (DoH) 
 ### Dedicated VPN Settings
 ![VPN Settings](assets/demo/Screenshot_vpn_settings.png)
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+  - [Uninstallation](#uninstallation)
+- [Features](#features)
+  - [Service Controls](#service-controls)
+  - [DoH Provider Management](#doh-provider-management)
+  - [Performance Testing](#performance-testing)
+- [Default Providers](#default-providers)
+- [Adding Custom Providers](#adding-custom-providers)
+- [Technical Details](#technical-details)
+  - [How it works](#how-it-works)
+  - [File Structure](#file-structure)
+  - [Logging](#logging)
+- [Troubleshooting](#troubleshooting)
+  - [Service Not Running](#service-not-running)
+  - [Failed Tests](#failed-tests)
+  - [Permission Issues](#permission-issues)
+- [Security Considerations](#security-considerations)
+- [License](#license)
+- [Contributing](#contributing)
+- [Acknowledgments](#acknowledgments)
+
 ## Overview
 
 DoH Switcher is a Flask-based web application that helps you manage the DNS over HTTPS service running on your system. It works with Cloudflared as the DoH proxy service and allows you to:
