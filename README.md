@@ -2,7 +2,14 @@
 
 A modern, web-based interface to manage and switch between DNS over HTTPS (DoH) providers for your system. DoH Switcher allows you to easily select, test, and manage your DNS over HTTPS providers through an intuitive interface.
 
-![DoH Switcher](screenshot.png)
+### Standard Cloudflared Mode
+![DoH Switcher Normal Mode](assets/demo/Screenshot_normal.png)
+
+### Privacy VPN Mode Active
+![VPN Active Banner](assets/demo/Screenshot_vpn_active.png)
+
+### Dedicated VPN Settings
+![VPN Settings](assets/demo/Screenshot_vpn_settings.png)
 
 ## Overview
 
