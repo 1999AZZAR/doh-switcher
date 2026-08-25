@@ -131,6 +131,8 @@ The application will validate the DoH URL before adding it to ensure it's a vali
 
 ### How it works
 
+![DoH Switcher Dual-Mode Architecture](assets/doh-switcher-illustrations/01-dual-mode-architecture.jpg)
+
 DoH Switcher operates in two distinct modes:
 
 **1. Standard DoH Mode (Cloudflared)**
