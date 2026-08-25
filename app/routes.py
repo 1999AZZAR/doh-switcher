@@ -14,6 +14,8 @@ from app.services.database import cleanup_old_records
 from app.utils.validators import normalize_url, validate_provider
 from app.utils.decorators import require_sudo
 from app.utils.logging import log_event
+from app.services.vpn_service import is_vpn_mode_active, enable_vpn_mode, disable_vpn_mode
+
 
 def register_routes(app):
     
@@ -23,6 +25,7 @@ def register_routes(app):
         current_provider_name, full_provider, base_provider = get_current_provider()
         service_status = get_service_status()
         network_info = get_network_info()
+        vpn_mode_active = is_vpn_mode_active()
         return render_template(
             "index.html",
             providers=providers,
@@ -33,7 +36,7 @@ def register_routes(app):
             network_info=network_info,
             default_providers=DEFAULT_PROVIDERS,
             test_results=test_results,
-            test_interval=app.config['TEST_INTERVAL']
+            test_interval=app.config['TEST_INTERVAL'], vpn_mode_active=vpn_mode_active
         )
 
     @app.route("/select_provider", methods=["POST"])
@@ -367,3 +370,23 @@ def register_routes(app):
             "avg": avg,
             "count": count
         })
+
+    @app.route("/vpn_settings")
+    @require_sudo
+    def vpn_settings():
+        return render_template("vpn.html", vpn_mode_active=is_vpn_mode_active())
+
+    @app.route("/toggle_mode", methods=["POST"])
+    @require_sudo
+    def toggle_mode():
+        if is_vpn_mode_active():
+            if disable_vpn_mode():
+                flash("VPN Mode disabled. Restored Cloudflared.", "success")
+            else:
+                flash("Error disabling VPN Mode.", "danger")
+        else:
+            if enable_vpn_mode():
+                flash("VPN Mode enabled (Unbound + DNSCrypt + WARP).", "success")
+            else:
+                flash("Error enabling VPN Mode.", "danger")
+        return redirect(request.referrer or url_for("index"))

@@ -35,10 +35,16 @@ If you prefer to install prerequisites manually, see the [Prerequisites guide](P
    cd doh-switcher
    ```
 
-2. Run the installer script:
+2. Run the installer scripts:
    
+   First, install the base application and Cloudflared:
    ```bash
    sudo ./install.sh
+   ```
+   
+   *(Optional)* Then, install the Privacy VPN Mode stack (Unbound, DNSCrypt, WARP):
+   ```bash
+   sudo ./scripts/install_vpn_stack.sh
    ```
    
    This will:
@@ -79,7 +85,10 @@ This will:
 
 ### Service Controls
 
+- **Privacy VPN Mode**: Seamlessly switch from Cloudflared to a hardened privacy stack (Unbound + DNSCrypt-proxy + WARP) with a single click.
 - **Backup Config**: Save your current DoH providers configuration
+- **Restore Config**: Restore a previously saved configuration
+- **Test All Providers**: Measure latency and connectivity of all providers at once**: Save your current DoH providers configuration
 - **Restore Config**: Restore a previously saved configuration
 - **Test All Providers**: Measure latency and connectivity of all providers at once
 
@@ -122,11 +131,19 @@ The application will validate the DoH URL before adding it to ensure it's a vali
 
 ### How it works
 
-DoH Switcher manages the Cloudflared service by:
+DoH Switcher operates in two distinct modes:
 
+**1. Standard DoH Mode (Cloudflared)**
+Manages the Cloudflared service by:
 1. Modifying the systemd service file located at `/etc/systemd/system/cloudflared.service`
 2. Updating the `--upstream` parameter to point to your selected DoH provider
 3. Reloading the systemd daemon and restarting the service
+
+**2. Privacy VPN Mode**
+A specialized privacy stack that replaces Cloudflared on-demand:
+- **Unbound**: Acts as a local caching DNS resolver on `127.0.0.1:53`
+- **DNSCrypt-proxy**: Receives queries from Unbound and encrypts them via HTTP/3 to Quad9
+- **WARP**: Routes your payload traffic anonymously while excluding local DNS queries
 
 ### File Structure
 

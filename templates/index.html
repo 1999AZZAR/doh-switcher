@@ -35,9 +35,18 @@
 </head>
 <body class="bg-gradient-to-br from-m-purple-50 via-purple-50 to-indigo-100 text-gray-800 font-sans">
     <!-- Navbar -->
+    <!-- Navbar -->
     <nav class="sticky top-0 z-40 bg-m-purple-100/80 backdrop-blur-lg shadow-sm mb-6">
-        <div class="container mx-auto px-4 py-3">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
             <a href="#" class="text-xl font-semibold text-m-purple-900">DNS Switcher</a>
+            
+            <!-- VPN Mode Toggle -->
+            <form action="{{ url_for('toggle_mode') }}" method="post" class="flex items-center gap-3 mb-0">
+                <span class="text-sm font-medium text-m-purple-900">Privacy VPN Mode</span>
+                <button type="submit" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-m-purple-500 focus:ring-offset-2 {% if vpn_mode_active %}bg-m-green{% else %}bg-gray-300{% endif %}">
+                    <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {% if vpn_mode_active %}translate-x-6{% else %}translate-x-1{% endif %}"></span>
+                </button>
+            </form>
         </div>
     </nav>
 
@@ -58,6 +67,21 @@
                 </script>
             {% endif %}
         {% endwith %}
+
+
+        {% if vpn_mode_active %}
+        <div class="bg-m-green/20 backdrop-blur-xl border border-m-green/30 rounded-2xl p-6 mb-8 text-center shadow-lg">
+            <i class="material-icons-outlined text-4xl text-m-green mb-2">security</i>
+            <h2 class="text-xl font-semibold text-m-purple-900 mb-2">Privacy VPN Mode is Active</h2>
+            <p class="text-gray-700 mb-4">Your DNS is securely routed through Unbound and DNSCrypt-proxy (Quad9 HTTP/3), and your traffic is protected by Cloudflare WARP.</p>
+            <a href="{{ url_for('vpn_settings') }}" class="inline-flex items-center gap-2 px-6 py-2 bg-m-green hover:bg-m-green/80 text-white rounded-full text-sm font-medium transition shadow-md">
+                <i class="material-icons-outlined text-base">settings</i> Manage VPN Settings
+            </a>
+        </div>
+        <div class="opacity-40 pointer-events-none">
+        {% else %}
+        <div>
+        {% endif %}
 
         <!-- Service Status & Controls -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
@@ -223,6 +247,7 @@
                 <canvas id="pingChart" class="w-full h-48"></canvas>
             </div>
             <!-- log viewer removed for cleaner UI -->
+        </div>
         </div>
     </main>
 

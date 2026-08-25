@@ -16,7 +16,8 @@ doh-switcher/
 │   │   ├── doh_service.py       # DoH service management
 │   │   ├── monitoring.py        # Background monitoring tasks
 │   │   ├── network_service.py   # Network utilities
-│   │   └── provider_service.py  # Provider CRUD operations
+│   │   ├── provider_service.py  # Provider CRUD operations
+│   │   └── vpn_service.py       # VPN Privacy Mode management
 │   └── utils/                   # Utility functions
 │       ├── __init__.py
 │       ├── decorators.py        # Custom decorators (require_sudo)
@@ -27,9 +28,11 @@ doh-switcher/
 │       └── styles.css
 ├── templates/                   # Jinja2 templates
 │   ├── index.html
+│   ├── vpn.html                 # VPN settings screen
 │   └── edit_provider.html
 ├── scripts/                     # Legacy and utility scripts
 │   ├── app.py.bak              # Backup of monolithic app
+│   ├── install_vpn_stack.sh    # Installs VPN privacy stack
 │   └── change_dns.sh           # Core DNS change script
 ├── Prerequisites/               # Installation prerequisites
 ├── config.py                    # Configuration management
@@ -59,6 +62,7 @@ doh-switcher/
 ### 3. Service Layer (`app/services/`)
 
 - **doh_service.py**: Manages cloudflared service operations
+- **vpn_service.py**: Handles toggling between Cloudflared and the Unbound/DNSCrypt/WARP stack
 - **provider_service.py**: Provider CRUD and configuration
 - **network_service.py**: Network diagnostics and ping operations
 - **database.py**: SQLite database operations

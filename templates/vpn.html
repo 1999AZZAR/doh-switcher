@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPN Settings - DoH Switcher</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'm-purple': {
+                            '50': '#f4efff', '100': '#eaddff', '200': '#d0bcff', '300': '#b69df8',
+                            '400': '#9a7ff0', '500': '#7f67ea', '600': '#6750a4', '700': '#523f82',
+                            '800': '#3c2d61', '900': '#271c40'
+                        },
+                        'm-green': '#69de8a', 'm-red': '#ff8a8a', 'm-orange': '#ffca7b',
+                        'm-blue': '#7ac0ff', 'm-teal': '#6ae8d3'
+                    },
+                    borderRadius: { 'xl': '1rem', '2xl': '1.5rem', '3xl': '2rem' },
+                    backdropBlur: { 'xl': '24px' }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gradient-to-br from-m-purple-50 via-purple-50 to-indigo-100 text-gray-800 font-sans min-h-screen">
+    <!-- Navbar -->
+    <nav class="sticky top-0 z-40 bg-m-purple-100/80 backdrop-blur-lg shadow-sm mb-6">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <a href="{{ url_for('index') }}" class="text-xl font-semibold text-m-purple-900 inline-flex items-center gap-2">
+                <i class="material-icons-outlined">arrow_back</i> VPN Settings
+            </a>
+            
+            <!-- VPN Mode Toggle -->
+            <form action="{{ url_for('toggle_mode') }}" method="post" class="flex items-center gap-3 mb-0">
+                <span class="text-sm font-medium text-m-purple-900">Privacy VPN Mode</span>
+                <button type="submit" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-m-purple-500 focus:ring-offset-2 {% if vpn_mode_active %}bg-m-green{% else %}bg-gray-300{% endif %}">
+                    <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {% if vpn_mode_active %}translate-x-6{% else %}translate-x-1{% endif %}"></span>
+                </button>
+            </form>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 pb-10">
+        
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-6 space-y-2">
+                {% for category, message in messages %}
+                    <div class="p-4 rounded-xl shadow-sm text-sm {% if category == 'success' %}bg-m-green/20 text-green-800 border border-m-green/30{% else %}bg-m-red/20 text-red-800 border border-m-red/30{% endif %}">
+                        {{ message | safe }}
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="bg-white/70 backdrop-blur-xl shadow-lg rounded-2xl p-8 max-w-3xl mx-auto">
+            <div class="text-center mb-8">
+                <i class="material-icons-outlined text-5xl text-m-purple-500 mb-2">vpn_lock</i>
+                <h1 class="text-2xl font-bold text-gray-800">Privacy VPN Stack</h1>
+                <p class="text-gray-600 mt-2">Manage your ultimate privacy setup powered by Unbound, DNSCrypt, and WARP.</p>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Unbound -->
+                <div class="p-5 border border-m-purple-200 rounded-xl bg-white/50 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-semibold text-m-purple-900 flex items-center gap-2">
+                            <i class="material-icons-outlined text-m-purple-500">memory</i> Local Cache (Unbound)
+                        </h3>
+                        <p class="text-sm text-gray-600">Caches queries locally and routes to DNSCrypt.</p>
+                    </div>
+                    <div>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium {% if vpn_mode_active %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {% if vpn_mode_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- DNSCrypt-proxy -->
+                <div class="p-5 border border-m-purple-200 rounded-xl bg-white/50 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-semibold text-m-purple-900 flex items-center gap-2">
+                            <i class="material-icons-outlined text-m-purple-500">security</i> DoH3 Proxy (DNSCrypt)
+                        </h3>
+                        <p class="text-sm text-gray-600">Encrypts requests over HTTP/3 to Quad9.</p>
+                    </div>
+                    <div>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium {% if vpn_mode_active %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {% if vpn_mode_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- WARP -->
+                <div class="p-5 border border-m-purple-200 rounded-xl bg-white/50 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-semibold text-m-purple-900 flex items-center gap-2">
+                            <i class="material-icons-outlined text-m-purple-500">public</i> Traffic Routing (WARP)
+                        </h3>
+                        <p class="text-sm text-gray-600">Routes payload traffic while excluding DNS.</p>
+                    </div>
+                    <div>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium {% if vpn_mode_active %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {% if vpn_mode_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</body>
+</html>
