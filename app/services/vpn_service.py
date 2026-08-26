@@ -23,7 +23,7 @@ def enable_vpn_mode():
         subprocess.run(["/usr/bin/systemctl", "enable", "unbound"], check=False)
         
         subprocess.run(["/usr/bin/warp-cli", "--accept-tos", "registration", "new"], check=False)
-        subprocess.run(["/usr/bin/warp-cli", "--accept-tos", "mode", "proxy"], check=True)
+        subprocess.run(["/usr/bin/warp-cli", "--accept-tos", "mode", "tunnel_only"], check=True)
         subprocess.run(["/usr/bin/warp-cli", "--accept-tos", "connect"], check=True)
 
         set_system_dns("127.0.0.1")
