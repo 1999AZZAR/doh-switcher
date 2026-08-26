@@ -31,8 +31,7 @@ if [ -f /etc/dnscrypt-proxy/dnscrypt-proxy.toml ]; then
     
     # Disable dnscrypt-proxy cache and DNSSEC (Unbound handles this better)
     if ! grep -q "require_dnssec" /etc/dnscrypt-proxy/dnscrypt-proxy.toml; then
-        sed -i '/listen_addresses =/a require_dnssec = false
-cache = false' /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+        echo -e "\nrequire_dnssec = false\ncache = false" >> /etc/dnscrypt-proxy/dnscrypt-proxy.toml
     fi
 fi
 
